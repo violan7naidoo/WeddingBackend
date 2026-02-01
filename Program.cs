@@ -1,0 +1,197 @@
+using System.Text;
+using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using OurBigDay.Api.Data;
+using OurBigDay.Api.Entities;
+using OurBigDay.Api.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+{
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequiredLength = 6;
+})
+.AddEntityFrameworkStores<AppDbContext>()
+.AddDefaultTokenProviders();
+
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "OurBigDay-Wedding-Planner-Secret-Key-Phase2-Min32Chars!";
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        ClockSkew = TimeSpan.Zero,
+    };
+});
+builder.Services.AddAuthorization();
+
+builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddControllers();
+
+var corsOrigins = builder.Configuration["CORS_ORIGINS"] ?? "http://localhost:5173,http://localhost:3000";
+var origins = corsOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+if (origins.Length == 0)
+    origins = new[] { "http://localhost:5173", "http://localhost:3000" };
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        // Supports exact origins AND wildcard host patterns like:
+        // - https://*.vercel.app
+        // - https://our-big-day-*.vercel.app
+        // - http://localhost:5173
+        policy.SetIsOriginAllowed(origin => IsAllowedOrigin(origin, origins))
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
+static bool IsAllowedOrigin(string origin, string[] allowedOrigins)
+{
+    if (string.IsNullOrWhiteSpace(origin)) return false;
+    origin = origin.Trim().TrimEnd('/');
+
+    if (!Uri.TryCreate(origin, UriKind.Absolute, out var originUri))
+        return false;
+
+    foreach (var allowed in allowedOrigins)
+    {
+        if (string.IsNullOrWhiteSpace(allowed)) continue;
+
+        var allowedTrimmed = allowed.Trim().TrimEnd('/');
+        if (allowedTrimmed == "*")
+            return true;
+
+        // Exact origin match (common case)
+        if (!allowedTrimmed.Contains('*') &&
+            string.Equals(allowedTrimmed, origin, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Wildcard host pattern match
+        if (allowedTrimmed.Contains('*') && WildcardOriginMatches(originUri, allowedTrimmed))
+            return true;
+    }
+
+    return false;
+}
+
+static bool WildcardOriginMatches(Uri originUri, string allowedPattern)
+{
+    // allowedPattern examples:
+    // - https://*.vercel.app
+    // - https://our-big-day-*.vercel.app
+    // - *.vercel.app
+    // - localhost:* (not recommended but supported if explicitly configured)
+
+    string? requiredScheme = null;
+    string hostAndPortPattern = allowedPattern;
+
+    var schemeSepIdx = allowedPattern.IndexOf("://", StringComparison.Ordinal);
+    if (schemeSepIdx >= 0)
+    {
+        requiredScheme = allowedPattern[..schemeSepIdx];
+        hostAndPortPattern = allowedPattern[(schemeSepIdx + 3)..];
+    }
+
+    // Drop any path if present (we only care about the origin host[:port])
+    var slashIdx = hostAndPortPattern.IndexOf('/', StringComparison.Ordinal);
+    if (slashIdx >= 0)
+        hostAndPortPattern = hostAndPortPattern[..slashIdx];
+
+    if (!string.IsNullOrWhiteSpace(requiredScheme) &&
+        !string.Equals(originUri.Scheme, requiredScheme, StringComparison.OrdinalIgnoreCase))
+    {
+        return false;
+    }
+
+    // Split host:port pattern (port optional)
+    var hostPattern = hostAndPortPattern;
+    var portPattern = "*";
+
+    var lastColonIdx = hostAndPortPattern.LastIndexOf(':');
+    if (lastColonIdx >= 0 && lastColonIdx < hostAndPortPattern.Length - 1)
+    {
+        hostPattern = hostAndPortPattern[..lastColonIdx];
+        portPattern = hostAndPortPattern[(lastColonIdx + 1)..];
+    }
+
+    if (!WildcardMatch(originUri.Host, hostPattern))
+        return false;
+
+    if (portPattern != "*" && int.TryParse(portPattern, out var requiredPort))
+        return originUri.Port == requiredPort;
+
+    return true;
+}
+
+static bool WildcardMatch(string input, string pattern)
+{
+    // Case-insensitive wildcard match where '*' matches any substring
+    if (string.IsNullOrWhiteSpace(pattern)) return false;
+    var regex = "^" + Regex.Escape(pattern).Replace("\\*", ".*") + "$";
+    return Regex.IsMatch(input, regex, RegexOptions.IgnoreCase);
+}
+
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port) && int.TryParse(port, out var portNum))
+    builder.WebHost.UseUrls($"http://0.0.0.0:{portNum}");
+
+var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+    foreach (var roleName in new[] { "Admin", "Family", "Guest" })
+    {
+        if (await roleManager.RoleExistsAsync(roleName)) continue;
+        await roleManager.CreateAsync(new IdentityRole(roleName));
+    }
+
+    if (await userManager.FindByEmailAsync("admin@ourbigday.com") == null)
+    {
+        var admin = new ApplicationUser
+        {
+            UserName = "admin@ourbigday.com",
+            Email = "admin@ourbigday.com",
+            DisplayName = "Admin",
+        };
+        await userManager.CreateAsync(admin, "Admin123!");
+        await userManager.AddToRoleAsync(admin, "Admin");
+    }
+}
+
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
