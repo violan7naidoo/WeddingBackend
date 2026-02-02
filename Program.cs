@@ -4,14 +4,32 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
+using NpgsqlTypes;
 using OurBigDay.Api.Data;
 using OurBigDay.Api.Entities;
 using OurBigDay.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Railway Postgres: prefer DATABASE_URL (typical on Railway), otherwise fall back to ConnectionStrings:DefaultConnection.
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection");
+if (!string.IsNullOrWhiteSpace(databaseUrl))
+{
+    defaultConnection = BuildNpgsqlConnectionStringFromDatabaseUrl(databaseUrl);
+}
+
+if (string.IsNullOrWhiteSpace(defaultConnection) || !LooksLikePostgresConnectionString(defaultConnection))
+{
+    throw new InvalidOperationException(
+        "Missing PostgreSQL connection. Set DATABASE_URL (Railway Postgres) or ConnectionStrings__DefaultConnection to a Postgres connection string.");
+}
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    options.UseNpgsql(defaultConnection);
+});
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
@@ -154,6 +172,78 @@ static bool WildcardMatch(string input, string pattern)
     if (string.IsNullOrWhiteSpace(pattern)) return false;
     var regex = "^" + Regex.Escape(pattern).Replace("\\*", ".*") + "$";
     return Regex.IsMatch(input, regex, RegexOptions.IgnoreCase);
+}
+
+static bool LooksLikePostgresConnectionString(string connectionString)
+{
+    // Npgsql-style connection strings usually include Host=... and Username=...
+    if (connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase)) return true;
+    if (connectionString.Contains("Username=", StringComparison.OrdinalIgnoreCase)) return true;
+    if (connectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)) return true;
+    if (connectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase)) return true;
+    return false;
+}
+
+static string BuildNpgsqlConnectionStringFromDatabaseUrl(string databaseUrl)
+{
+    // Examples:
+    // postgres://user:pass@host:5432/db
+    // postgresql://user:pass@host/db?sslmode=require
+    if (!Uri.TryCreate(databaseUrl, UriKind.Absolute, out var uri))
+        throw new InvalidOperationException("DATABASE_URL is not a valid absolute URI.");
+
+    if (!string.Equals(uri.Scheme, "postgres", StringComparison.OrdinalIgnoreCase) &&
+        !string.Equals(uri.Scheme, "postgresql", StringComparison.OrdinalIgnoreCase))
+    {
+        throw new InvalidOperationException("DATABASE_URL must start with postgres:// or postgresql://");
+    }
+
+    var userInfoParts = (uri.UserInfo ?? "").Split(':', 2);
+    var username = userInfoParts.Length > 0 ? Uri.UnescapeDataString(userInfoParts[0]) : "";
+    var password = userInfoParts.Length > 1 ? Uri.UnescapeDataString(userInfoParts[1]) : "";
+    var database = uri.AbsolutePath.Trim('/'); // "/db" -> "db"
+
+    // Railway may provide either internal URLs (may not need SSL) or public proxy URLs (often require SSL).
+    // Prefer is the safest default: use SSL if available, otherwise fall back to non-SSL.
+    var sslMode = SslMode.Prefer;
+
+    // Minimal query parsing for sslmode=...
+    var query = uri.Query.TrimStart('?');
+    if (!string.IsNullOrWhiteSpace(query))
+    {
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var kv = pair.Split('=', 2);
+            if (kv.Length != 2) continue;
+            var key = Uri.UnescapeDataString(kv[0]);
+            var value = Uri.UnescapeDataString(kv[1]);
+            if (key.Equals("sslmode", StringComparison.OrdinalIgnoreCase))
+            {
+                sslMode = value.ToLowerInvariant() switch
+                {
+                    "disable" => SslMode.Disable,
+                    "prefer" => SslMode.Prefer,
+                    "require" => SslMode.Require,
+                    "verify-ca" => SslMode.VerifyCA,
+                    "verify-full" => SslMode.VerifyFull,
+                    _ => sslMode
+                };
+            }
+        }
+    }
+
+    var csb = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port > 0 ? uri.Port : 5432,
+        Username = username,
+        Password = password,
+        Database = database,
+        SslMode = sslMode,
+        // Keep pool defaults; tune later if needed.
+    };
+
+    return csb.ConnectionString;
 }
 
 var port = Environment.GetEnvironmentVariable("PORT");
