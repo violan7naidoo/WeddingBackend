@@ -4,18 +4,20 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using OurBigDay.Api.Data;
 using OurBigDay.Api.Entities;
 using OurBigDay.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Prefer DATABASE_URL (postgresql:// URI — Npgsql 8.x parses it natively, including sslmode and channel_binding).
+// Prefer DATABASE_URL (postgresql:// URI). Must be converted to Npgsql key=value format because
+// NpgsqlConnectionStringBuilder (used internally by EF Core) does not accept raw URIs.
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection");
 if (!string.IsNullOrWhiteSpace(databaseUrl))
 {
-    defaultConnection = databaseUrl;
+    defaultConnection = BuildNpgsqlConnectionStringFromDatabaseUrl(databaseUrl);
 }
 
 if (string.IsNullOrWhiteSpace(defaultConnection) || !LooksLikePostgresConnectionString(defaultConnection))
@@ -179,6 +181,62 @@ static bool LooksLikePostgresConnectionString(string connectionString)
     if (connectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)) return true;
     if (connectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase)) return true;
     return false;
+}
+
+static string BuildNpgsqlConnectionStringFromDatabaseUrl(string databaseUrl)
+{
+    // Converts postgresql://user:pass@host:5432/db?sslmode=require&channel_binding=require
+    // into Npgsql key=value format. NpgsqlConnectionStringBuilder (used by EF Core internally)
+    // does not accept raw postgresql:// URIs, so we must parse and rebuild.
+    // channel_binding is intentionally ignored — not a valid Npgsql 8.x keyword; Neon still
+    // accepts standard SCRAM-SHA-256 without it.
+    if (!Uri.TryCreate(databaseUrl, UriKind.Absolute, out var uri))
+        throw new InvalidOperationException("DATABASE_URL is not a valid absolute URI.");
+
+    if (!string.Equals(uri.Scheme, "postgres", StringComparison.OrdinalIgnoreCase) &&
+        !string.Equals(uri.Scheme, "postgresql", StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("DATABASE_URL must start with postgres:// or postgresql://");
+
+    var userInfoParts = (uri.UserInfo ?? "").Split(':', 2);
+    var username = userInfoParts.Length > 0 ? Uri.UnescapeDataString(userInfoParts[0]) : "";
+    var password = userInfoParts.Length > 1 ? Uri.UnescapeDataString(userInfoParts[1]) : "";
+    var database = uri.AbsolutePath.Trim('/');
+
+    var sslMode = SslMode.Prefer;
+    var query = uri.Query.TrimStart('?');
+    if (!string.IsNullOrWhiteSpace(query))
+    {
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var kv = pair.Split('=', 2);
+            if (kv.Length != 2) continue;
+            var key = Uri.UnescapeDataString(kv[0]);
+            var value = Uri.UnescapeDataString(kv[1]);
+            if (key.Equals("sslmode", StringComparison.OrdinalIgnoreCase))
+            {
+                sslMode = value.ToLowerInvariant() switch
+                {
+                    "disable"     => SslMode.Disable,
+                    "prefer"      => SslMode.Prefer,
+                    "require"     => SslMode.Require,
+                    "verify-ca"   => SslMode.VerifyCA,
+                    "verify-full" => SslMode.VerifyFull,
+                    _             => sslMode
+                };
+            }
+            // channel_binding is skipped — not supported as an Npgsql 8.x connection string keyword
+        }
+    }
+
+    return new NpgsqlConnectionStringBuilder
+    {
+        Host     = uri.Host,
+        Port     = uri.Port > 0 ? uri.Port : 5432,
+        Username = username,
+        Password = password,
+        Database = database,
+        SslMode  = sslMode,
+    }.ConnectionString;
 }
 
 var port = Environment.GetEnvironmentVariable("PORT");
