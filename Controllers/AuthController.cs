@@ -9,28 +9,25 @@ namespace OurBigDay.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController : ControllerBase
+public class AuthController : ApiControllerBase
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IJwtService _jwtService;
-    private readonly IConfiguration _config;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
-        IJwtService jwtService,
-        IConfiguration config)
+        IJwtService jwtService)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _jwtService = jwtService;
-        _config = config;
     }
 
     [HttpPost("login")]
     [AllowAnonymous]
-    public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request, CancellationToken ct = default)
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user == null)
@@ -45,9 +42,10 @@ public class AuthController : ControllerBase
         return Ok(new AuthResponse(token, user.Email ?? "", roles.FirstOrDefault() ?? "Family", user.DisplayName ?? user.UserName ?? ""));
     }
 
+    // Admin-only: registration is controlled — users cannot self-register.
     [HttpPost("register")]
-    [AllowAnonymous]
-    public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken = default)
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request, CancellationToken ct = default)
     {
         var user = new ApplicationUser
         {
@@ -59,9 +57,8 @@ public class AuthController : ControllerBase
         if (!result.Succeeded)
             return BadRequest(result.Errors.Select(e => e.Description));
 
-        var role = request.Role ?? "Family";
-        if (new[] { "Admin", "Family", "Guest" }.Contains(role))
-            await _userManager.AddToRoleAsync(user, role);
+        var role = request.Role is "Admin" or "Family" or "Guest" ? request.Role : "Family";
+        await _userManager.AddToRoleAsync(user, role);
 
         var roles = await _userManager.GetRolesAsync(user);
         var token = _jwtService.GenerateToken(user, roles);
@@ -70,15 +67,13 @@ public class AuthController : ControllerBase
 
     [HttpGet("me")]
     [Authorize]
-    public async Task<ActionResult<AuthResponse>> Me(CancellationToken cancellationToken = default)
+    public async Task<ActionResult<AuthResponse>> Me(CancellationToken ct = default)
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId))
-            return Unauthorized();
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
         var user = await _userManager.FindByIdAsync(userId);
-        if (user == null)
-            return Unauthorized();
+        if (user == null) return Unauthorized();
 
         var roles = await _userManager.GetRolesAsync(user);
         var token = _jwtService.GenerateToken(user, roles);

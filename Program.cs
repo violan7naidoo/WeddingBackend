@@ -6,7 +6,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using OurBigDay.Api.Data;
-using OurBigDay.Api.Entities;
 using OurBigDay.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -65,6 +64,10 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IWeddingDayService, WeddingDayService>();
+builder.Services.AddScoped<IWeddingItemService, WeddingItemService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<DatabaseSeeder>();
 builder.Services.AddControllers();
 
 var corsOrigins = builder.Configuration["CORS_ORIGINS"] ?? "http://localhost:5173,http://localhost:3000";
@@ -247,29 +250,8 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-
-    foreach (var roleName in new[] { "Admin", "Family", "Guest" })
-    {
-        if (await roleManager.RoleExistsAsync(roleName)) continue;
-        await roleManager.CreateAsync(new IdentityRole(roleName));
-    }
-
-    if (await userManager.FindByEmailAsync("admin@ourbigday.com") == null)
-    {
-        var admin = new ApplicationUser
-        {
-            UserName = "admin@ourbigday.com",
-            Email = "admin@ourbigday.com",
-            DisplayName = "Admin",
-        };
-        await userManager.CreateAsync(admin, "Admin123!");
-        await userManager.AddToRoleAsync(admin, "Admin");
-    }
+    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+    await seeder.SeedAsync();
 }
 
 app.UseCors();

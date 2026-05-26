@@ -1,29 +1,23 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using OurBigDay.Api.Data;
-using OurBigDay.Api.Entities;
+using OurBigDay.Api.DTOs;
+using OurBigDay.Api.Services;
 
 namespace OurBigDay.Api.Controllers;
 
 [Route("api/wedding")]
 [ApiController]
 [Authorize]
-public class WeddingDaysController : ControllerBase
+public class WeddingDaysController : ApiControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IWeddingDayService _dayService;
 
-    public WeddingDaysController(AppDbContext context)
+    public WeddingDaysController(IWeddingDayService dayService)
     {
-        _context = context;
+        _dayService = dayService;
     }
 
     [HttpGet("days")]
-    public async Task<ActionResult<IEnumerable<WeddingDay>>> GetDays(CancellationToken cancellationToken = default)
-    {
-        var days = await _context.WeddingDays
-            .OrderBy(d => d.DayNumber)
-            .ToListAsync(cancellationToken);
-        return Ok(days);
-    }
+    public async Task<ActionResult<IEnumerable<WeddingDayDto>>> GetDays(CancellationToken ct = default) =>
+        Ok(await _dayService.GetAllAsync(ct));
 }

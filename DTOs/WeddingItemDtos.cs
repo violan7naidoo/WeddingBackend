@@ -11,8 +11,7 @@ public record WeddingItemDto(
     decimal? EstimatedCost,
     decimal? DepositPaid,
     decimal? OutstandingFees,
-    decimal? PercentageComplete,
-    string? AttributesJson
+    decimal? PercentageComplete
 );
 
 public record CreateWeddingItemRequest(
@@ -23,9 +22,7 @@ public record CreateWeddingItemRequest(
     string? Notes,
     decimal? EstimatedCost,
     decimal? DepositPaid,
-    decimal? OutstandingFees,
-    decimal? PercentageComplete,
-    string? AttributesJson
+    decimal? PercentageComplete
 );
 
 public record UpdateWeddingItemRequest(
@@ -34,7 +31,5 @@ public record UpdateWeddingItemRequest(
     string? Notes,
     decimal? EstimatedCost,
     decimal? DepositPaid,
-    decimal? OutstandingFees,
-    decimal? PercentageComplete,
-    string? AttributesJson
+    decimal? PercentageComplete
 );

@@ -1,136 +1,63 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using OurBigDay.Api.Data;
 using OurBigDay.Api.DTOs;
-using OurBigDay.Api.Entities;
+using OurBigDay.Api.Exceptions;
+using OurBigDay.Api.Services;
 
 namespace OurBigDay.Api.Controllers;
 
 [Route("api/wedding")]
 [ApiController]
 [Authorize(Roles = "Admin,Family")]
-public class WeddingItemsController : ControllerBase
+public class WeddingItemsController : ApiControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IWeddingItemService _itemService;
 
-    public WeddingItemsController(AppDbContext context)
+    public WeddingItemsController(IWeddingItemService itemService)
     {
-        _context = context;
+        _itemService = itemService;
     }
 
     [HttpGet("days/{dayId:int}/items")]
-    public async Task<ActionResult<IEnumerable<WeddingItemDto>>> GetItemsByDay(int dayId, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<IEnumerable<WeddingItemDto>>> GetItemsByDay(int dayId, CancellationToken ct = default)
     {
-        var exists = await _context.WeddingDays.AnyAsync(d => d.Id == dayId, cancellationToken);
-        if (!exists)
-            return NotFound("Day not found.");
-
-        var items = await _context.WeddingItems
-            .Where(wi => wi.DayId == dayId)
-            .Include(wi => wi.Category)
-            .OrderBy(wi => wi.Category.Name)
-            .ThenBy(wi => wi.Name)
-            .Select(wi => ToDto(wi))
-            .ToListAsync(cancellationToken);
-        return Ok(items);
+        try { return Ok(await _itemService.GetByDayAsync(dayId, ct)); }
+        catch (BusinessException ex) { return HandleException(ex); }
     }
 
     [HttpGet("days/{dayId:int}/categories/{categoryId:int}/items")]
-    public async Task<ActionResult<IEnumerable<WeddingItemDto>>> GetItemsByDayAndCategory(int dayId, int categoryId, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<IEnumerable<WeddingItemDto>>> GetItemsByDayAndCategory(int dayId, int categoryId, CancellationToken ct = default) =>
+        Ok(await _itemService.GetByDayAndCategoryAsync(dayId, categoryId, ct));
+
+    [HttpGet("items/{id:int}")]
+    public async Task<ActionResult<WeddingItemDto>> GetItemById(int id, CancellationToken ct = default)
     {
-        var items = await _context.WeddingItems
-            .Where(wi => wi.DayId == dayId && wi.CategoryId == categoryId)
-            .Include(wi => wi.Category)
-            .OrderBy(wi => wi.Name)
-            .Select(wi => ToDto(wi))
-            .ToListAsync(cancellationToken);
-        return Ok(items);
+        var item = await _itemService.GetByIdAsync(id, ct);
+        return item == null ? NotFound() : Ok(item);
     }
 
     [HttpPost("items")]
-    public async Task<ActionResult<WeddingItemDto>> CreateItem([FromBody] CreateWeddingItemRequest request, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<WeddingItemDto>> CreateItem([FromBody] CreateWeddingItemRequest request, CancellationToken ct = default)
     {
-        var dayExists = await _context.WeddingDays.AnyAsync(d => d.Id == request.DayId, cancellationToken);
-        if (!dayExists)
-            return BadRequest("Day not found.");
-        var categoryExists = await _context.Categories.AnyAsync(c => c.Id == request.CategoryId, cancellationToken);
-        if (!categoryExists)
-            return BadRequest("Category not found.");
-
-        var item = new WeddingItem
+        try
         {
-            DayId = request.DayId,
-            CategoryId = request.CategoryId,
-            Name = request.Name,
-            VendorName = request.VendorName,
-            Notes = request.Notes,
-            EstimatedCost = request.EstimatedCost,
-            DepositPaid = request.DepositPaid,
-            OutstandingFees = request.OutstandingFees,
-            PercentageComplete = request.PercentageComplete,
-            AttributesJson = request.AttributesJson,
-        };
-        _context.WeddingItems.Add(item);
-        await _context.SaveChangesAsync(cancellationToken);
-        await _context.Entry(item).Reference(wi => wi.Category).LoadAsync(cancellationToken);
-        return CreatedAtAction(nameof(GetItemById), new { id = item.Id }, ToDto(item));
-    }
-
-    [HttpGet("items/{id:int}")]
-    public async Task<ActionResult<WeddingItemDto>> GetItemById(int id, CancellationToken cancellationToken = default)
-    {
-        var item = await _context.WeddingItems
-            .Include(wi => wi.Category)
-            .FirstOrDefaultAsync(wi => wi.Id == id, cancellationToken);
-        if (item == null)
-            return NotFound();
-        return Ok(ToDto(item));
+            var item = await _itemService.CreateAsync(request, ct);
+            return CreatedAtAction(nameof(GetItemById), new { id = item.Id }, item);
+        }
+        catch (BusinessException ex) { return HandleException(ex); }
     }
 
     [HttpPut("items/{id:int}")]
-    public async Task<ActionResult<WeddingItemDto>> UpdateItem(int id, [FromBody] UpdateWeddingItemRequest request, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<WeddingItemDto>> UpdateItem(int id, [FromBody] UpdateWeddingItemRequest request, CancellationToken ct = default)
     {
-        var item = await _context.WeddingItems.Include(wi => wi.Category).FirstOrDefaultAsync(wi => wi.Id == id, cancellationToken);
-        if (item == null)
-            return NotFound();
-
-        item.Name = request.Name;
-        item.VendorName = request.VendorName;
-        item.Notes = request.Notes;
-        item.EstimatedCost = request.EstimatedCost;
-        item.DepositPaid = request.DepositPaid;
-        item.OutstandingFees = request.OutstandingFees;
-        item.PercentageComplete = request.PercentageComplete;
-        item.AttributesJson = request.AttributesJson;
-        await _context.SaveChangesAsync(cancellationToken);
-        return Ok(ToDto(item));
+        try { return Ok(await _itemService.UpdateAsync(id, request, ct)); }
+        catch (BusinessException ex) { return HandleException(ex); }
     }
 
     [HttpDelete("items/{id:int}")]
-    public async Task<ActionResult> DeleteItem(int id, CancellationToken cancellationToken = default)
+    public async Task<ActionResult> DeleteItem(int id, CancellationToken ct = default)
     {
-        var item = await _context.WeddingItems.FindAsync(new object[] { id }, cancellationToken);
-        if (item == null)
-            return NotFound();
-        _context.WeddingItems.Remove(item);
-        await _context.SaveChangesAsync(cancellationToken);
-        return NoContent();
+        try { await _itemService.DeleteAsync(id, ct); return NoContent(); }
+        catch (BusinessException ex) { return HandleException(ex); }
     }
-
-    private static WeddingItemDto ToDto(WeddingItem wi)
-        => new WeddingItemDto(
-            wi.Id,
-            wi.DayId,
-            wi.CategoryId,
-            wi.Category.Name,
-            wi.Name,
-            wi.VendorName,
-            wi.Notes,
-            wi.EstimatedCost,
-            wi.DepositPaid,
-            wi.OutstandingFees,
-            wi.PercentageComplete,
-            wi.AttributesJson
-        );
 }
