@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using OurBigDay.Api.Entities;
 
 namespace OurBigDay.Api.Data;

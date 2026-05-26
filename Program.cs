@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using OurBigDay.Api.Data;
+using OurBigDay.Api.Entities;
 using OurBigDay.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
