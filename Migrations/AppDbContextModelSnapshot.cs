@@ -426,6 +426,54 @@ namespace OurBigDay.Api.Migrations
                     b.HasData(
                         new
                         {
+                            DayId = 4,
+                            CategoryId = 1,
+                            DisplayOrder = 1
+                        },
+                        new
+                        {
+                            DayId = 4,
+                            CategoryId = 2,
+                            DisplayOrder = 2
+                        },
+                        new
+                        {
+                            DayId = 4,
+                            CategoryId = 33,
+                            DisplayOrder = 3
+                        },
+                        new
+                        {
+                            DayId = 4,
+                            CategoryId = 12,
+                            DisplayOrder = 4
+                        },
+                        new
+                        {
+                            DayId = 5,
+                            CategoryId = 1,
+                            DisplayOrder = 1
+                        },
+                        new
+                        {
+                            DayId = 5,
+                            CategoryId = 2,
+                            DisplayOrder = 2
+                        },
+                        new
+                        {
+                            DayId = 5,
+                            CategoryId = 5,
+                            DisplayOrder = 3
+                        },
+                        new
+                        {
+                            DayId = 5,
+                            CategoryId = 10,
+                            DisplayOrder = 4
+                        },
+                        new
+                        {
                             DayId = 1,
                             CategoryId = 1,
                             DisplayOrder = 1
@@ -474,39 +522,27 @@ namespace OurBigDay.Api.Migrations
                         },
                         new
                         {
-                            DayId = 2,
-                            CategoryId = 1,
-                            DisplayOrder = 1
-                        },
-                        new
-                        {
-                            DayId = 2,
-                            CategoryId = 2,
-                            DisplayOrder = 2
-                        },
-                        new
-                        {
-                            DayId = 2,
+                            DayId = 1,
                             CategoryId = 9,
-                            DisplayOrder = 3
+                            DisplayOrder = 9
                         },
                         new
                         {
-                            DayId = 2,
+                            DayId = 1,
                             CategoryId = 10,
-                            DisplayOrder = 4
+                            DisplayOrder = 10
                         },
                         new
                         {
-                            DayId = 2,
+                            DayId = 1,
                             CategoryId = 11,
-                            DisplayOrder = 5
+                            DisplayOrder = 11
                         },
                         new
                         {
-                            DayId = 2,
+                            DayId = 1,
                             CategoryId = 12,
-                            DisplayOrder = 6
+                            DisplayOrder = 12
                         },
                         new
                         {
@@ -691,24 +727,31 @@ namespace OurBigDay.Api.Migrations
                     b.HasData(
                         new
                         {
-                            Id = 1,
-                            Date = new DateOnly(2025, 3, 14),
+                            Id = 4,
+                            Date = new DateOnly(2026, 12, 16),
                             DayNumber = 1,
-                            ThemeName = "Sangeet"
+                            ThemeName = "Mendhi"
                         },
                         new
                         {
-                            Id = 2,
-                            Date = new DateOnly(2025, 3, 15),
+                            Id = 5,
+                            Date = new DateOnly(2026, 12, 17),
                             DayNumber = 2,
-                            ThemeName = "Night Before"
+                            ThemeName = "Haldi"
+                        },
+                        new
+                        {
+                            Id = 1,
+                            Date = new DateOnly(2026, 12, 18),
+                            DayNumber = 3,
+                            ThemeName = "Hindu wedding and night before/Sangeet"
                         },
                         new
                         {
                             Id = 3,
-                            Date = new DateOnly(2025, 3, 16),
-                            DayNumber = 3,
-                            ThemeName = "Christian Wedding"
+                            Date = new DateOnly(2026, 12, 19),
+                            DayNumber = 4,
+                            ThemeName = "Christian wedding and reception"
                         });
                 });
 

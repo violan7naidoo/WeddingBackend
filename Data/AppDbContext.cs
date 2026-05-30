@@ -21,9 +21,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.Entity<WeddingDay>().HasData(
-            new WeddingDay { Id = 1, DayNumber = 1, ThemeName = "Sangeet", Date = new DateOnly(2025, 3, 14) },
-            new WeddingDay { Id = 2, DayNumber = 2, ThemeName = "Night Before", Date = new DateOnly(2025, 3, 15) },
-            new WeddingDay { Id = 3, DayNumber = 3, ThemeName = "Christian Wedding", Date = new DateOnly(2025, 3, 16) }
+            new WeddingDay { Id = 4, DayNumber = 1, ThemeName = "Mendhi", Date = new DateOnly(2026, 12, 16) },
+            new WeddingDay { Id = 5, DayNumber = 2, ThemeName = "Haldi", Date = new DateOnly(2026, 12, 17) },
+            new WeddingDay { Id = 1, DayNumber = 3, ThemeName = "Hindu wedding and night before/Sangeet", Date = new DateOnly(2026, 12, 18) },
+            new WeddingDay { Id = 3, DayNumber = 4, ThemeName = "Christian wedding and reception", Date = new DateOnly(2026, 12, 19) }
         );
 
         modelBuilder.Entity<DayCategory>()
@@ -109,6 +110,17 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
         var dayCategories = new[]
         {
+            // Day 4 - Mendhi
+            new { DayId = 4, CategoryId = 1, DisplayOrder = 1 },
+            new { DayId = 4, CategoryId = 2, DisplayOrder = 2 },
+            new { DayId = 4, CategoryId = 33, DisplayOrder = 3 },
+            new { DayId = 4, CategoryId = 12, DisplayOrder = 4 },
+            // Day 5 - Haldi
+            new { DayId = 5, CategoryId = 1, DisplayOrder = 1 },
+            new { DayId = 5, CategoryId = 2, DisplayOrder = 2 },
+            new { DayId = 5, CategoryId = 5, DisplayOrder = 3 },
+            new { DayId = 5, CategoryId = 10, DisplayOrder = 4 },
+            // Day 1 - Hindu wedding and night before/Sangeet (merged Sangeet + Night Before)
             new { DayId = 1, CategoryId = 1, DisplayOrder = 1 },
             new { DayId = 1, CategoryId = 2, DisplayOrder = 2 },
             new { DayId = 1, CategoryId = 3, DisplayOrder = 3 },
@@ -117,12 +129,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             new { DayId = 1, CategoryId = 6, DisplayOrder = 6 },
             new { DayId = 1, CategoryId = 7, DisplayOrder = 7 },
             new { DayId = 1, CategoryId = 8, DisplayOrder = 8 },
-            new { DayId = 2, CategoryId = 1, DisplayOrder = 1 },
-            new { DayId = 2, CategoryId = 2, DisplayOrder = 2 },
-            new { DayId = 2, CategoryId = 9, DisplayOrder = 3 },
-            new { DayId = 2, CategoryId = 10, DisplayOrder = 4 },
-            new { DayId = 2, CategoryId = 11, DisplayOrder = 5 },
-            new { DayId = 2, CategoryId = 12, DisplayOrder = 6 },
+            new { DayId = 1, CategoryId = 9, DisplayOrder = 9 },
+            new { DayId = 1, CategoryId = 10, DisplayOrder = 10 },
+            new { DayId = 1, CategoryId = 11, DisplayOrder = 11 },
+            new { DayId = 1, CategoryId = 12, DisplayOrder = 12 },
             new { DayId = 3, CategoryId = 13, DisplayOrder = 1 },
             new { DayId = 3, CategoryId = 1, DisplayOrder = 2 },
             new { DayId = 3, CategoryId = 14, DisplayOrder = 3 },
