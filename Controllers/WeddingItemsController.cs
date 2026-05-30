@@ -60,4 +60,32 @@ public class WeddingItemsController : ApiControllerBase
         try { await _itemService.DeleteAsync(id, ct); return NoContent(); }
         catch (BusinessException ex) { return HandleException(ex); }
     }
+
+    [HttpPost("items/{id:int}/payments")]
+    public async Task<ActionResult<WeddingItemDto>> AddPayment(int id, [FromBody] AddPaymentRequest request, CancellationToken ct = default)
+    {
+        try { return Ok(await _itemService.AddPaymentAsync(id, request, ct)); }
+        catch (BusinessException ex) { return HandleException(ex); }
+    }
+
+    [HttpDelete("items/{id:int}/payments/{paymentId:int}")]
+    public async Task<ActionResult<WeddingItemDto>> DeletePayment(int id, int paymentId, CancellationToken ct = default)
+    {
+        try { return Ok(await _itemService.DeletePaymentAsync(id, paymentId, ct)); }
+        catch (BusinessException ex) { return HandleException(ex); }
+    }
+
+    [HttpPost("items/{id:int}/images")]
+    public async Task<ActionResult<WeddingItemDto>> AddImage(int id, [FromBody] AddImageRequest request, CancellationToken ct = default)
+    {
+        try { return Ok(await _itemService.AddImageAsync(id, request.ImageBase64, ct)); }
+        catch (BusinessException ex) { return HandleException(ex); }
+    }
+
+    [HttpDelete("items/{id:int}/images/{imageIndex:int}")]
+    public async Task<ActionResult<WeddingItemDto>> DeleteImage(int id, int imageIndex, CancellationToken ct = default)
+    {
+        try { return Ok(await _itemService.DeleteImageAsync(id, imageIndex, ct)); }
+        catch (BusinessException ex) { return HandleException(ex); }
+    }
 }

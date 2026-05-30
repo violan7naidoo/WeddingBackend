@@ -1,5 +1,7 @@
 namespace OurBigDay.Api.DTOs;
 
+public record PaymentDto(int Id, decimal Amount, string PaidDate, string? Note);
+
 public record WeddingItemDto(
     int Id,
     int DayId,
@@ -11,7 +13,9 @@ public record WeddingItemDto(
     decimal? EstimatedCost,
     decimal? DepositPaid,
     decimal? OutstandingFees,
-    decimal? PercentageComplete
+    decimal? PercentageComplete,
+    List<string> Images,
+    List<PaymentDto> Payments
 );
 
 public record CreateWeddingItemRequest(
@@ -33,3 +37,7 @@ public record UpdateWeddingItemRequest(
     decimal? DepositPaid,
     decimal? PercentageComplete
 );
+
+public record AddPaymentRequest(decimal Amount, string PaidDate, string? Note);
+
+public record AddImageRequest(string ImageBase64);

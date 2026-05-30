@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using OurBigDay.Api.Data;
 using OurBigDay.Api.DTOs;
@@ -24,6 +25,7 @@ public class WeddingItemService : IWeddingItemService
         return await _context.WeddingItems
             .Where(wi => wi.DayId == dayId)
             .Include(wi => wi.Category)
+            .Include(wi => wi.Payments)
             .OrderBy(wi => wi.Category.Name)
             .ThenBy(wi => wi.Name)
             .Select(wi => WeddingItemMapper.ToDto(wi))
@@ -34,6 +36,7 @@ public class WeddingItemService : IWeddingItemService
         await _context.WeddingItems
             .Where(wi => wi.DayId == dayId && wi.CategoryId == categoryId)
             .Include(wi => wi.Category)
+            .Include(wi => wi.Payments)
             .OrderBy(wi => wi.Name)
             .Select(wi => WeddingItemMapper.ToDto(wi))
             .ToListAsync(ct);
@@ -42,6 +45,7 @@ public class WeddingItemService : IWeddingItemService
     {
         var item = await _context.WeddingItems
             .Include(wi => wi.Category)
+            .Include(wi => wi.Payments)
             .FirstOrDefaultAsync(wi => wi.Id == id, ct);
         return item == null ? null : WeddingItemMapper.ToDto(item);
     }
@@ -76,6 +80,7 @@ public class WeddingItemService : IWeddingItemService
     {
         var item = await _context.WeddingItems
             .Include(wi => wi.Category)
+            .Include(wi => wi.Payments)
             .FirstOrDefaultAsync(wi => wi.Id == id, ct)
             ?? throw new NotFoundException("Item not found.");
 
@@ -84,7 +89,7 @@ public class WeddingItemService : IWeddingItemService
         item.Notes = request.Notes;
         item.EstimatedCost = request.EstimatedCost;
         item.DepositPaid = request.DepositPaid;
-        item.OutstandingFees = CalculateOutstanding(request.EstimatedCost, request.DepositPaid);
+        item.OutstandingFees = CalculateOutstanding(request.EstimatedCost, request.DepositPaid, item.Payments.Sum(p => p.Amount));
         item.PercentageComplete = request.PercentageComplete;
 
         await _context.SaveChangesAsync(ct);
@@ -100,8 +105,94 @@ public class WeddingItemService : IWeddingItemService
         await _context.SaveChangesAsync(ct);
     }
 
-    private static decimal? CalculateOutstanding(decimal? estimated, decimal? deposit) =>
+    public async Task<WeddingItemDto> AddPaymentAsync(int itemId, AddPaymentRequest request, CancellationToken ct = default)
+    {
+        var item = await _context.WeddingItems
+            .Include(wi => wi.Category)
+            .Include(wi => wi.Payments)
+            .FirstOrDefaultAsync(wi => wi.Id == itemId, ct)
+            ?? throw new NotFoundException("Item not found.");
+
+        var payment = new WeddingItemPayment
+        {
+            WeddingItemId = itemId,
+            Amount = request.Amount,
+            PaidDate = DateOnly.Parse(request.PaidDate),
+            Note = request.Note,
+        };
+
+        item.Payments.Add(payment);
+        item.OutstandingFees = CalculateOutstanding(item.EstimatedCost, item.DepositPaid, item.Payments.Sum(p => p.Amount));
+
+        await _context.SaveChangesAsync(ct);
+        return WeddingItemMapper.ToDto(item);
+    }
+
+    public async Task<WeddingItemDto> DeletePaymentAsync(int itemId, int paymentId, CancellationToken ct = default)
+    {
+        var item = await _context.WeddingItems
+            .Include(wi => wi.Category)
+            .Include(wi => wi.Payments)
+            .FirstOrDefaultAsync(wi => wi.Id == itemId, ct)
+            ?? throw new NotFoundException("Item not found.");
+
+        var payment = item.Payments.FirstOrDefault(p => p.Id == paymentId)
+            ?? throw new NotFoundException("Payment not found.");
+
+        item.Payments.Remove(payment);
+        item.OutstandingFees = CalculateOutstanding(item.EstimatedCost, item.DepositPaid, item.Payments.Where(p => p.Id != paymentId).Sum(p => p.Amount));
+
+        await _context.SaveChangesAsync(ct);
+        return WeddingItemMapper.ToDto(item);
+    }
+
+    public async Task<WeddingItemDto> AddImageAsync(int itemId, string imageBase64, CancellationToken ct = default)
+    {
+        var item = await _context.WeddingItems
+            .Include(wi => wi.Category)
+            .Include(wi => wi.Payments)
+            .FirstOrDefaultAsync(wi => wi.Id == itemId, ct)
+            ?? throw new NotFoundException("Item not found.");
+
+        var images = ParseImages(item.ImagesJson);
+        if (images.Count >= 10)
+            throw new BusinessException("Maximum of 10 images per item.");
+
+        images.Add(imageBase64);
+        item.ImagesJson = JsonSerializer.Serialize(images);
+
+        await _context.SaveChangesAsync(ct);
+        return WeddingItemMapper.ToDto(item);
+    }
+
+    public async Task<WeddingItemDto> DeleteImageAsync(int itemId, int imageIndex, CancellationToken ct = default)
+    {
+        var item = await _context.WeddingItems
+            .Include(wi => wi.Category)
+            .Include(wi => wi.Payments)
+            .FirstOrDefaultAsync(wi => wi.Id == itemId, ct)
+            ?? throw new NotFoundException("Item not found.");
+
+        var images = ParseImages(item.ImagesJson);
+        if (imageIndex < 0 || imageIndex >= images.Count)
+            throw new BusinessException("Image index out of range.");
+
+        images.RemoveAt(imageIndex);
+        item.ImagesJson = images.Count > 0 ? JsonSerializer.Serialize(images) : null;
+
+        await _context.SaveChangesAsync(ct);
+        return WeddingItemMapper.ToDto(item);
+    }
+
+    private static decimal? CalculateOutstanding(decimal? estimated, decimal? deposit, decimal paymentsTotal = 0) =>
         (estimated.HasValue || deposit.HasValue)
-            ? Math.Max(0, (estimated ?? 0) - (deposit ?? 0))
+            ? Math.Max(0, (estimated ?? 0) - (deposit ?? 0) - paymentsTotal)
             : null;
+
+    private static List<string> ParseImages(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return [];
+        try { return JsonSerializer.Deserialize<List<string>>(json) ?? []; }
+        catch { return []; }
+    }
 }

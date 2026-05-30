@@ -19,4 +19,7 @@ public class WeddingItem
     public decimal? PercentageComplete { get; set; }
 
     public string? AttributesJson { get; set; }
+    public string? ImagesJson { get; set; }
+
+    public ICollection<WeddingItemPayment> Payments { get; set; } = new List<WeddingItemPayment>();
 }

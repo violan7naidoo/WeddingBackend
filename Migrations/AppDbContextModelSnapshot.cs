@@ -780,6 +780,9 @@ namespace OurBigDay.Api.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<string>("ImagesJson")
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -805,6 +808,34 @@ namespace OurBigDay.Api.Migrations
                     b.HasIndex("DayId");
 
                     b.ToTable("WeddingItems");
+                });
+
+            modelBuilder.Entity("OurBigDay.Api.Entities.WeddingItemPayment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly>("PaidDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("WeddingItemId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WeddingItemId");
+
+                    b.ToTable("WeddingItemPayments");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -896,6 +927,17 @@ namespace OurBigDay.Api.Migrations
                     b.Navigation("WeddingDay");
                 });
 
+            modelBuilder.Entity("OurBigDay.Api.Entities.WeddingItemPayment", b =>
+                {
+                    b.HasOne("OurBigDay.Api.Entities.WeddingItem", "WeddingItem")
+                        .WithMany("Payments")
+                        .HasForeignKey("WeddingItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WeddingItem");
+                });
+
             modelBuilder.Entity("OurBigDay.Api.Entities.Category", b =>
                 {
                     b.Navigation("DayCategories");
@@ -908,6 +950,11 @@ namespace OurBigDay.Api.Migrations
                     b.Navigation("DayCategories");
 
                     b.Navigation("WeddingItems");
+                });
+
+            modelBuilder.Entity("OurBigDay.Api.Entities.WeddingItem", b =>
+                {
+                    b.Navigation("Payments");
                 });
 #pragma warning restore 612, 618
         }

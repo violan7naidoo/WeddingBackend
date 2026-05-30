@@ -15,6 +15,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Category> Categories { get; set; }
     public DbSet<DayCategory> DayCategories { get; set; }
     public DbSet<WeddingItem> WeddingItems { get; set; }
+    public DbSet<WeddingItemPayment> WeddingItemPayments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +51,16 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             .WithMany(c => c.WeddingItems)
             .HasForeignKey(wi => wi.CategoryId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<WeddingItemPayment>()
+            .HasOne(p => p.WeddingItem)
+            .WithMany(wi => wi.Payments)
+            .HasForeignKey(p => p.WeddingItemId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WeddingItemPayment>()
+            .Property(p => p.Amount)
+            .HasPrecision(18, 2);
 
         modelBuilder.Entity<WeddingItem>()
             .Property(wi => wi.EstimatedCost)

@@ -10,4 +10,10 @@ public interface IWeddingItemService
     Task<WeddingItemDto> CreateAsync(CreateWeddingItemRequest request, CancellationToken ct = default);
     Task<WeddingItemDto> UpdateAsync(int id, UpdateWeddingItemRequest request, CancellationToken ct = default);
     Task DeleteAsync(int id, CancellationToken ct = default);
+
+    Task<WeddingItemDto> AddPaymentAsync(int itemId, AddPaymentRequest request, CancellationToken ct = default);
+    Task<WeddingItemDto> DeletePaymentAsync(int itemId, int paymentId, CancellationToken ct = default);
+
+    Task<WeddingItemDto> AddImageAsync(int itemId, string imageBase64, CancellationToken ct = default);
+    Task<WeddingItemDto> DeleteImageAsync(int itemId, int imageIndex, CancellationToken ct = default);
 }
