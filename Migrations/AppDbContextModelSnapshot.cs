@@ -744,14 +744,14 @@ namespace OurBigDay.Api.Migrations
                             Id = 1,
                             Date = new DateOnly(2026, 12, 18),
                             DayNumber = 3,
-                            ThemeName = "Hindu wedding and night before/Sangeet"
+                            ThemeName = "Hindu Wedding & Night Before/Sangeet"
                         },
                         new
                         {
                             Id = 3,
                             Date = new DateOnly(2026, 12, 19),
                             DayNumber = 4,
-                            ThemeName = "Christian wedding and reception"
+                            ThemeName = "Christian Wedding & Reception"
                         });
                 });
 

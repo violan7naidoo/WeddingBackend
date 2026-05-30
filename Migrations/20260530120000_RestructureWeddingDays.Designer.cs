@@ -368,8 +368,8 @@ namespace OurBigDay.Api.Migrations
                     b.HasData(
                         new { Id = 4, Date = new DateOnly(2026, 12, 16), DayNumber = 1, ThemeName = "Mendhi" },
                         new { Id = 5, Date = new DateOnly(2026, 12, 17), DayNumber = 2, ThemeName = "Haldi" },
-                        new { Id = 1, Date = new DateOnly(2026, 12, 18), DayNumber = 3, ThemeName = "Hindu wedding and night before/Sangeet" },
-                        new { Id = 3, Date = new DateOnly(2026, 12, 19), DayNumber = 4, ThemeName = "Christian wedding and reception" });
+                        new { Id = 1, Date = new DateOnly(2026, 12, 18), DayNumber = 3, ThemeName = "Hindu Wedding & Night Before/Sangeet" },
+                        new { Id = 3, Date = new DateOnly(2026, 12, 19), DayNumber = 4, ThemeName = "Christian Wedding & Reception" });
                 });
 
             modelBuilder.Entity("OurBigDay.Api.Entities.WeddingItem", b =>

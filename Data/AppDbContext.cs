@@ -23,8 +23,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<WeddingDay>().HasData(
             new WeddingDay { Id = 4, DayNumber = 1, ThemeName = "Mendhi", Date = new DateOnly(2026, 12, 16) },
             new WeddingDay { Id = 5, DayNumber = 2, ThemeName = "Haldi", Date = new DateOnly(2026, 12, 17) },
-            new WeddingDay { Id = 1, DayNumber = 3, ThemeName = "Hindu wedding and night before/Sangeet", Date = new DateOnly(2026, 12, 18) },
-            new WeddingDay { Id = 3, DayNumber = 4, ThemeName = "Christian wedding and reception", Date = new DateOnly(2026, 12, 19) }
+            new WeddingDay { Id = 1, DayNumber = 3, ThemeName = "Hindu Wedding & Night Before/Sangeet", Date = new DateOnly(2026, 12, 18) },
+            new WeddingDay { Id = 3, DayNumber = 4, ThemeName = "Christian Wedding & Reception", Date = new DateOnly(2026, 12, 19) }
         );
 
         modelBuilder.Entity<DayCategory>()
